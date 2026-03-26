@@ -122,29 +122,42 @@ local function tryOpenLink(url)
     return opened
 end
 
--- UI CREATION (Silver Glass)
+-- UI CREATION (Silver Glass - Đơn giản hóa)
 local function createKeyUI()
+    -- Xóa UI cũ
     pcall(function()
         if CoreGui:FindFirstChild("KeySystemUI") then
             CoreGui.KeySystemUI:Destroy()
         end
     end)
 
+    -- Tạo ScreenGui an toàn
     local ScreenGui = Instance.new("ScreenGui")
     ScreenGui.Name = "KeySystemUI"
     ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
     ScreenGui.ResetOnSpawn = false
-    ScreenGui.Parent = CoreGui or player:WaitForChild("PlayerGui")
+    
+    -- Thử parent vào CoreGui, nếu không được thì dùng PlayerGui
+    local success, err = pcall(function()
+        ScreenGui.Parent = CoreGui
+    end)
+    if not success then
+        ScreenGui.Parent = player:WaitForChild("PlayerGui")
+    end
+    
+    -- Nếu vẫn không có parent thì thoát
+    if not ScreenGui.Parent then
+        warn("Không thể tạo UI: không có CoreGui hoặc PlayerGui")
+        return
+    end
 
-    -- Màu sắc trong suốt ánh bạc
+    -- Màu sắc - Đục hơn để dễ thấy
     local colors = {
-        bg = Color3.fromRGB(255, 255, 255),
-        card = Color3.fromRGB(220, 225, 235),
+        card = Color3.fromRGB(220, 225, 235),     -- bạc nhạt
         accent = Color3.fromRGB(200, 210, 225),
         text = Color3.fromRGB(50, 55, 65),
         textDim = Color3.fromRGB(100, 110, 120),
         inputBg = Color3.fromRGB(240, 245, 250),
-        border = Color3.fromRGB(210, 220, 230),
         buttonBg = Color3.fromRGB(230, 235, 245),
     }
 
@@ -153,37 +166,24 @@ local function createKeyUI()
     MainFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
     MainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
     MainFrame.BackgroundColor3 = colors.card
-    MainFrame.BackgroundTransparency = 0.25
+    MainFrame.BackgroundTransparency = 0.15  -- giảm độ trong suốt
     MainFrame.BorderSizePixel = 0
     MainFrame.ClipsDescendants = true
     MainFrame.Parent = ScreenGui
 
+    -- Bo góc
     local UICorner = Instance.new("UICorner")
-    UICorner.CornerRadius = UDim.new(0, 16)
+    UICorner.CornerRadius = UDim.new(0, 12)
     UICorner.Parent = MainFrame
 
+    -- Viền mờ
     local UIStroke = Instance.new("UIStroke")
     UIStroke.Color = Color3.fromRGB(255, 255, 255)
-    UIStroke.Thickness = 1.5
-    UIStroke.Transparency = 0.5
+    UIStroke.Thickness = 1
+    UIStroke.Transparency = 0.4
     UIStroke.Parent = MainFrame
 
-    local Shadow = Instance.new("UIShadow")
-    Shadow.Size = 16
-    Shadow.Color = Color3.fromRGB(0, 0, 0)
-    Shadow.Transparency = 0.3
-    Shadow.Parent = MainFrame
-
-    local Gradient = Instance.new("UIGradient")
-    Gradient.Color = ColorSequence.new({
-        ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 255, 255)),
-        ColorSequenceKeypoint.new(0.5, Color3.fromRGB(240, 245, 250)),
-        ColorSequenceKeypoint.new(1, Color3.fromRGB(220, 225, 235))
-    })
-    Gradient.Rotation = 45
-    Gradient.Transparency = 0.2
-    Gradient.Parent = MainFrame
-
+    -- Tiêu đề
     local Title = Instance.new("TextLabel")
     Title.Size = UDim2.new(1, 0, 0, 50)
     Title.Position = UDim2.new(0, 0, 0, 0)
@@ -195,11 +195,12 @@ local function createKeyUI()
     Title.TextXAlignment = Enum.TextXAlignment.Center
     Title.Parent = MainFrame
 
+    -- Nút đóng
     local CloseBtn = Instance.new("TextButton")
     CloseBtn.Size = UDim2.new(0, 32, 0, 32)
     CloseBtn.Position = UDim2.new(1, -40, 0, 10)
     CloseBtn.BackgroundColor3 = colors.buttonBg
-    CloseBtn.BackgroundTransparency = 0.6
+    CloseBtn.BackgroundTransparency = 0.5
     CloseBtn.BorderSizePixel = 0
     CloseBtn.Text = "✕"
     CloseBtn.TextSize = 18
@@ -213,17 +214,19 @@ local function createKeyUI()
         ScreenGui:Destroy()
     end)
 
+    -- Nội dung
     local Content = Instance.new("Frame")
     Content.Size = UDim2.new(1, -30, 1, -70)
     Content.Position = UDim2.new(0, 15, 0, 55)
     Content.BackgroundTransparency = 1
     Content.Parent = MainFrame
 
+    -- Ô nhập key
     local InputBox = Instance.new("TextBox")
     InputBox.Size = UDim2.new(1, 0, 0, 44)
     InputBox.Position = UDim2.new(0, 0, 0, 0)
     InputBox.BackgroundColor3 = colors.inputBg
-    InputBox.BackgroundTransparency = 0.5
+    InputBox.BackgroundTransparency = 0.3
     InputBox.BorderSizePixel = 0
     InputBox.PlaceholderText = "Nhập key tại đây..."
     InputBox.PlaceholderColor3 = colors.textDim
@@ -237,11 +240,12 @@ local function createKeyUI()
     inputCorner.CornerRadius = UDim.new(0, 10)
     inputCorner.Parent = InputBox
 
+    -- Nút kiểm tra key
     local CheckBtn = Instance.new("TextButton")
     CheckBtn.Size = UDim2.new(1, 0, 0, 44)
     CheckBtn.Position = UDim2.new(0, 0, 0, 54)
     CheckBtn.BackgroundColor3 = colors.accent
-    CheckBtn.BackgroundTransparency = 0.3
+    CheckBtn.BackgroundTransparency = 0.2
     CheckBtn.BorderSizePixel = 0
     CheckBtn.Text = "✓ Kiểm tra key"
     CheckBtn.TextSize = 14
@@ -252,11 +256,12 @@ local function createKeyUI()
     checkCorner.CornerRadius = UDim.new(0, 10)
     checkCorner.Parent = CheckBtn
 
+    -- Nút lấy key
     local GetKeyBtn = Instance.new("TextButton")
     GetKeyBtn.Size = UDim2.new(1, 0, 0, 44)
     GetKeyBtn.Position = UDim2.new(0, 0, 0, 108)
     GetKeyBtn.BackgroundColor3 = colors.buttonBg
-    GetKeyBtn.BackgroundTransparency = 0.6
+    GetKeyBtn.BackgroundTransparency = 0.5
     GetKeyBtn.BorderSizePixel = 0
     GetKeyBtn.Text = "🔑 Lấy key mới"
     GetKeyBtn.TextSize = 14
@@ -267,11 +272,12 @@ local function createKeyUI()
     getCorner.CornerRadius = UDim.new(0, 10)
     getCorner.Parent = GetKeyBtn
 
+    -- Nút join server
     local JoinBtn = Instance.new("TextButton")
     JoinBtn.Size = UDim2.new(1, 0, 0, 44)
     JoinBtn.Position = UDim2.new(0, 0, 0, 162)
     JoinBtn.BackgroundColor3 = colors.buttonBg
-    JoinBtn.BackgroundTransparency = 0.6
+    JoinBtn.BackgroundTransparency = 0.5
     JoinBtn.BorderSizePixel = 0
     JoinBtn.Text = "💬 Tham gia Discord"
     JoinBtn.TextSize = 14
@@ -287,7 +293,7 @@ local function createKeyUI()
         btn.MouseEnter:Connect(function()
             TweenService:Create(btn, TweenInfo.new(0.2), {
                 BackgroundColor3 = targetColor,
-                BackgroundTransparency = targetTrans or 0.2
+                BackgroundTransparency = targetTrans
             }):Play()
         end)
         btn.MouseLeave:Connect(function()
@@ -298,10 +304,10 @@ local function createKeyUI()
         end)
     end
 
-    setHover(CheckBtn, Color3.fromRGB(180, 195, 215), 0.2)
-    setHover(GetKeyBtn, Color3.fromRGB(210, 220, 235), 0.4)
-    setHover(JoinBtn, Color3.fromRGB(210, 220, 235), 0.4)
-    setHover(CloseBtn, Color3.fromRGB(200, 210, 225), 0.5)
+    setHover(CheckBtn, Color3.fromRGB(180, 195, 215), 0.1)
+    setHover(GetKeyBtn, Color3.fromRGB(210, 220, 235), 0.3)
+    setHover(JoinBtn, Color3.fromRGB(210, 220, 235), 0.3)
+    setHover(CloseBtn, Color3.fromRGB(200, 210, 225), 0.4)
 
     -- Sự kiện Join
     JoinBtn.MouseButton1Click:Connect(function()
@@ -355,11 +361,11 @@ local function createKeyUI()
         if result and result.success and result.valid then
             CheckBtn.Text = "✅ Hợp lệ"
             showNotification("Thành công", "Key hợp lệ! Đang tải script...", 4)
-            -- Lưu cache nếu server trả về expires
+            -- Lưu cache
             if result.expires then
                 saveKeyCache(key, result.expires)
             else
-                saveKeyCache(key, os.time() + 24 * 3600) -- mặc định 24h
+                saveKeyCache(key, os.time() + 24 * 3600)
             end
             ScreenGui:Destroy()
             -- loadstring(game:HttpGet("URL_MAIN_SCRIPT"))()
@@ -375,10 +381,10 @@ local function createKeyUI()
         isChecking = false
     end)
 
-    -- Animation mở
+    -- Animation hiện UI
     MainFrame.BackgroundTransparency = 1
-    TweenService:Create(MainFrame, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
-        BackgroundTransparency = 0.25
+    TweenService:Create(MainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+        BackgroundTransparency = 0.15
     }):Play()
 end
 
@@ -387,7 +393,6 @@ local function main()
     -- Thử đọc cache trước
     local cache = loadKeyCache()
     if cache then
-        -- Nếu còn hạn, coi như key hợp lệ
         local remaining = math.floor((cache.expires - os.time()) / 3600)
         showNotification(CONFIG.SCRIPT_NAME, "Key từ cache hợp lệ! Còn " .. remaining .. "h", 4)
         -- loadstring(game:HttpGet("URL_MAIN_SCRIPT"))()
