@@ -11,7 +11,7 @@ local CONFIG = {
 
     JOIN_SERVER_URL = "https://discord.gg/yourserver",
     CACHE_FILE = "dieverhub.txt",
-    URL_MAIN_SCRIPT = "loadstring(game:HttpGet("https://raw.githubusercontent.com/AhmadV99/Speed-Hub-X/main/Speed%20Hub%20X.lua"))()"
+    URL_MAIN_SCRIPT = "print("hello")"
 }
 
 --// SERVICES
