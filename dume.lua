@@ -16,19 +16,17 @@ local RbxAnalytics = game:GetService("RbxAnalyticsService")
 
 local player = Players.LocalPlayer
 
--- HWID GENERATION (CỐ ĐỊNH, KHÔNG ĐỔI THEO NGÀY)
+-- HWID GENERATION (CỐ ĐỊNH)
 local function getHWID()
     local hwid = ""
     pcall(function()
         hwid = RbxAnalytics:GetClientId()
     end)
     if hwid == "" then
-        -- fallback: UserId + PlaceId (cố định cho game)
         hwid = player.UserId .. "_" .. game.PlaceId
     end
     return hwid
 end
-
 local HWID = getHWID()
 
 -- API FUNCTIONS
@@ -54,6 +52,36 @@ end
 local function createKeyAndLink()
     local url = CONFIG.API_BASE_URL .. "/create_key.php?password=" .. HttpService:UrlEncode(CONFIG.ADMIN_PASSWORD)
     return httpGet(url)
+end
+
+-- FILE CACHE (lưu trạng thái key hợp lệ)
+local function saveKeyCache(key, expiresAt)
+    if not writefile then return false end
+    local success, err = pcall(function()
+        local data = {
+            key = key,
+            hwid = HWID,
+            expires = expiresAt,
+            savedAt = os.time()
+        }
+        writefile("dieverhub.txt", HttpService:JSONEncode(data))
+        return true
+    end)
+    return success
+end
+
+local function loadKeyCache()
+    if not readfile then return nil end
+    local success, result = pcall(function()
+        local content = readfile("dieverhub.txt")
+        if content and content ~= "" then
+            local data = HttpService:JSONDecode(content)
+            if data and data.hwid == HWID and data.expires and data.expires > os.time() then
+                return data
+            end
+        end
+    end)
+    return success and result or nil
 end
 
 -- UTILS
@@ -327,6 +355,12 @@ local function createKeyUI()
         if result and result.success and result.valid then
             CheckBtn.Text = "✅ Hợp lệ"
             showNotification("Thành công", "Key hợp lệ! Đang tải script...", 4)
+            -- Lưu cache nếu server trả về expires
+            if result.expires then
+                saveKeyCache(key, result.expires)
+            else
+                saveKeyCache(key, os.time() + 24 * 3600) -- mặc định 24h
+            end
             ScreenGui:Destroy()
             -- loadstring(game:HttpGet("URL_MAIN_SCRIPT"))()
         else
@@ -348,14 +382,29 @@ local function createKeyUI()
     }):Play()
 end
 
--- MAIN
+-- MAIN LOGIC (có cache)
 local function main()
+    -- Thử đọc cache trước
+    local cache = loadKeyCache()
+    if cache then
+        -- Nếu còn hạn, coi như key hợp lệ
+        local remaining = math.floor((cache.expires - os.time()) / 3600)
+        showNotification(CONFIG.SCRIPT_NAME, "Key từ cache hợp lệ! Còn " .. remaining .. "h", 4)
+        -- loadstring(game:HttpGet("URL_MAIN_SCRIPT"))()
+        return
+    end
+
     -- Key từ getgenv
     local presetKey = getgenv().Key
     if presetKey and presetKey ~= "" then
         local result = checkKey(presetKey)
         if result and result.success and result.valid then
             showNotification(CONFIG.SCRIPT_NAME, "Key hợp lệ! Còn " .. tostring(result.remaining_hours) .. "h", 4)
+            if result.expires then
+                saveKeyCache(presetKey, result.expires)
+            else
+                saveKeyCache(presetKey, os.time() + 24 * 3600)
+            end
             -- loadstring(game:HttpGet("URL_MAIN_SCRIPT"))()
             return
         else
@@ -366,9 +415,14 @@ local function main()
         end
     end
 
-    -- Kiểm tra HWID
+    -- Kiểm tra HWID từ server
     local hwidResult = checkHWID()
     if hwidResult and hwidResult.success and hwidResult.has_key and hwidResult.valid then
+        if hwidResult.expires then
+            saveKeyCache(hwidResult.key, hwidResult.expires)
+        else
+            saveKeyCache("hwid_key", os.time() + 24 * 3600)
+        end
         -- loadstring(game:HttpGet("URL_MAIN_SCRIPT"))()
         return
     end
