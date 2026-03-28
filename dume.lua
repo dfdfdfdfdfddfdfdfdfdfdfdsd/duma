@@ -1,4 +1,4 @@
--- Tạo UI Console cho Sailor Piece (Roblox)
+-- Script nâng cao cho Sailor Piece - Quét NPC, quái, nhiệm vụ
 local player = game.Players.LocalPlayer
 local mouse = player:GetMouse()
 
@@ -9,8 +9,8 @@ local function createUI()
     screenGui.Parent = player:WaitForChild("PlayerGui")
 
     local mainFrame = Instance.new("Frame")
-    mainFrame.Size = UDim2.new(0, 500, 0, 400)
-    mainFrame.Position = UDim2.new(0.5, -250, 0.5, -200)
+    mainFrame.Size = UDim2.new(0, 550, 0, 450)
+    mainFrame.Position = UDim2.new(0.5, -275, 0.5, -225)
     mainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
     mainFrame.BackgroundTransparency = 0.1
     mainFrame.BorderSizePixel = 0
@@ -32,7 +32,7 @@ local function createUI()
     titleText.Size = UDim2.new(1, -60, 1, 0)
     titleText.Position = UDim2.new(0, 10, 0, 0)
     titleText.BackgroundTransparency = 1
-    titleText.Text = "Sailor Piece Console"
+    titleText.Text = "Sailor Piece Console v2"
     titleText.TextColor3 = Color3.fromRGB(255, 255, 255)
     titleText.TextXAlignment = Enum.TextXAlignment.Left
     titleText.Font = Enum.Font.GothamBold
@@ -104,130 +104,217 @@ local function createUI()
     copyBtn.BorderSizePixel = 0
     copyBtn.Parent = buttonFrame
 
+    local debugBtn = Instance.new("TextButton")
+    debugBtn.Size = UDim2.new(0, 80, 1, 0)
+    debugBtn.Position = UDim2.new(0, 180, 0, 0)
+    debugBtn.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
+    debugBtn.Text = "Debug"
+    debugBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    debugBtn.Font = Enum.Font.GothamBold
+    debugBtn.TextSize = 14
+    debugBtn.BorderSizePixel = 0
+    debugBtn.Parent = buttonFrame
+
     -- Hàm cập nhật nội dung console
     local function updateConsole(text)
         consoleText.Text = text
-        -- Tự động điều chỉnh height của TextLabel
         consoleText.Size = UDim2.new(1, -20, 0, consoleText.TextBounds.Y + 10)
         consoleFrame.CanvasSize = UDim2.new(0, 0, 0, consoleText.Size.Y.Offset)
     end
 
-    -- Hàm quét dữ liệu
+    -- Hàm quét dữ liệu nâng cao
     local function scan()
         local output = {}
-        table.insert(output, "=== SCAN RESULTS ===")
-        table.insert(output, "Time: " .. os.date("%Y-%m-%d %H:%M:%S"))
-        table.insert(output, "")
+        local debugInfo = {}
 
-        -- 1. Quét NPC
-        table.insert(output, "--- NPCs ---")
-        local npcCount = 0
+        local function addLine(str, isDebug)
+            if isDebug then
+                table.insert(debugInfo, str)
+            else
+                table.insert(output, str)
+            end
+        end
+
+        addLine("=== SCAN RESULTS (Enhanced) ===")
+        addLine("Time: " .. os.date("%Y-%m-%d %H:%M:%S"))
+        addLine("")
+
+        -- 1. Thu thập tất cả Model có Humanoid trong workspace
+        local allModels = {}
         for _, obj in ipairs(workspace:GetDescendants()) do
             if obj:IsA("Model") and obj:FindFirstChild("Humanoid") then
-                -- Bỏ qua các model có tên chứa "Mob", "Enemy", "Boss" hoặc có tag
-                local name = obj.Name:lower()
-                if not (name:find("mob") or name:find("enemy") or name:find("boss") or name:find("pet")) then
-                    local npcInfo = "- " .. obj.Name
-                    -- Thử lấy level nếu có
-                    local levelPart = obj:FindFirstChild("Level")
-                    if levelPart and levelPart:IsA("IntValue") then
-                        npcInfo = npcInfo .. " (Level: " .. levelPart.Value .. ")"
-                    end
-                    table.insert(output, npcInfo)
-                    npcCount = npcCount + 1
-                end
+                table.insert(allModels, obj)
             end
         end
-        if npcCount == 0 then
-            table.insert(output, "  No NPCs found.")
-        end
-        table.insert(output, "")
+        addLine("[DEBUG] Total models with Humanoid: " .. #allModels, true)
 
-        -- 2. Quét quái (mobs / enemies)
-        table.insert(output, "--- Mobs / Enemies ---")
-        local mobCount = 0
-        for _, obj in ipairs(workspace:GetDescendants()) do
-            if obj:IsA("Model") and obj:FindFirstChild("Humanoid") then
-                local name = obj.Name:lower()
-                -- Tiêu chí nhận dạng mob: tên chứa mob, enemy, boss, hoặc không có dấu hiệu NPC (có thể tùy chỉnh)
-                if name:find("mob") or name:find("enemy") or name:find("boss") then
-                    local mobInfo = "- " .. obj.Name
-                    local levelPart = obj:FindFirstChild("Level")
-                    if levelPart and levelPart:IsA("IntValue") then
-                        mobInfo = mobInfo .. " (Level: " .. levelPart.Value .. ")"
-                    end
-                    table.insert(output, mobInfo)
-                    mobCount = mobCount + 1
-                end
-            end
-        end
-        if mobCount == 0 then
-            table.insert(output, "  No mobs found.")
-        end
-        table.insert(output, "")
+        -- Phân loại dựa trên tên và thuộc tính
+        local npcs = {}
+        local mobs = {}
+        local bosses = {}
 
-        -- 3. Quét nhiệm vụ (quest) – tìm các phần tử liên quan
-        table.insert(output, "--- Quests ---")
-        local questCount = 0
-        local questKeywords = {"quest", "mission", "task", "bounty"}
-        for _, obj in ipairs(workspace:GetDescendants()) do
-            local name = obj.Name:lower()
-            for _, kw in ipairs(questKeywords) do
-                if name:find(kw) then
-                    table.insert(output, "- " .. obj.Name .. " (" .. obj.ClassName .. ")")
-                    questCount = questCount + 1
-                    break
-                end
+        for _, model in ipairs(allModels) do
+            local name = model.Name:lower()
+            local isBoss = name:find("boss") or name:find("raid") or (model:FindFirstChild("Boss") ~= nil)
+            local isMob = name:find("mob") or name:find("enemy") or name:find("pirate") or name:find("marine") or name:find("bandit") or name:find("skeleton")
+            local isNPC = not isMob and not isBoss  -- mặc định là NPC nếu không phải mob/boss
+
+            -- Kiểm tra tag từ CollectionService (nếu game dùng)
+            local tags = game:GetService("CollectionService"):GetTags(model)
+            for _, tag in ipairs(tags) do
+                if tag:lower() == "npc" then isNPC = true isMob = false isBoss = false end
+                if tag:lower() == "mob" or tag:lower() == "enemy" then isMob = true isNPC = false isBoss = false end
+                if tag:lower() == "boss" then isBoss = true isNPC = false isMob = false end
+            end
+
+            if isBoss then
+                table.insert(bosses, model)
+            elseif isMob then
+                table.insert(mobs, model)
+            elseif isNPC then
+                table.insert(npcs, model)
+            else
+                -- fallback: nếu không phân loại được, xem có Humanoid và không có tấn công? (có thể là NPC)
+                table.insert(npcs, model)
             end
         end
-        -- Nếu có ReplicatedStorage, kiểm tra thêm
-        if game:GetService("ReplicatedStorage") then
-            for _, obj in ipairs(game.ReplicatedStorage:GetDescendants()) do
+
+        -- 2. Xuất NPC
+        addLine("--- NPCs (" .. #npcs .. ") ---")
+        for _, npc in ipairs(npcs) do
+            local info = "- " .. npc.Name
+            local level = npc:FindFirstChild("Level")
+            if level and level:IsA("IntValue") then
+                info = info .. " (Lv: " .. level.Value .. ")"
+            end
+            addLine(info)
+        end
+        if #npcs == 0 then addLine("  No NPCs found.") end
+        addLine("")
+
+        -- 3. Xuất Mobs
+        addLine("--- Mobs (" .. #mobs .. ") ---")
+        for _, mob in ipairs(mobs) do
+            local info = "- " .. mob.Name
+            local level = mob:FindFirstChild("Level")
+            if level and level:IsA("IntValue") then
+                info = info .. " (Lv: " .. level.Value .. ")"
+            end
+            addLine(info)
+        end
+        if #mobs == 0 then addLine("  No mobs found.") end
+        addLine("")
+
+        -- 4. Xuất Boss
+        addLine("--- Bosses (" .. #bosses .. ") ---")
+        for _, boss in ipairs(bosses) do
+            local info = "- " .. boss.Name
+            local level = boss:FindFirstChild("Level")
+            if level and level:IsA("IntValue") then
+                info = info .. " (Lv: " .. level.Value .. ")"
+            end
+            addLine(info)
+        end
+        if #bosses == 0 then addLine("  No bosses found.") end
+        addLine("")
+
+        -- 5. Quét nhiệm vụ (quest) – tìm trong workspace và các dịch vụ có thể truy cập
+        addLine("--- Quests ---")
+        local questItems = {}
+        local questKeywords = {"quest", "mission", "task", "bounty", "objective"}
+        local function scanForQuest(container)
+            for _, obj in ipairs(container:GetDescendants()) do
                 local name = obj.Name:lower()
                 for _, kw in ipairs(questKeywords) do
                     if name:find(kw) then
-                        table.insert(output, "- " .. obj.Name .. " (" .. obj.ClassName .. ") [ReplicatedStorage]")
-                        questCount = questCount + 1
+                        local path = ""
+                        if container == workspace then
+                            path = "[Workspace] "
+                        elseif container == game:GetService("ReplicatedStorage") then
+                            path = "[ReplicatedStorage] "
+                        elseif container == game:GetService("Players") then
+                            path = "[Players] "
+                        else
+                            path = "[" .. container.Name .. "] "
+                        end
+                        table.insert(questItems, path .. obj.Name .. " (" .. obj.ClassName .. ")")
                         break
                     end
                 end
             end
         end
-        if questCount == 0 then
-            table.insert(output, "  No quest-related objects found.")
-        end
-        table.insert(output, "")
 
-        -- 4. Thông tin bổ sung: các folder / model chứa dữ liệu quan trọng
-        table.insert(output, "--- Additional Info ---")
-        local importantFolders = {"NPCs", "Mobs", "Quests", "Enemies", "Bosses", "Data"}
-        for _, folderName in ipairs(importantFolders) do
-            local folder = workspace:FindFirstChild(folderName)
+        scanForQuest(workspace)
+        pcall(function() scanForQuest(game:GetService("ReplicatedStorage")) end)
+        pcall(function() scanForQuest(game:GetService("ServerScriptService")) end) -- có thể không truy cập được
+        pcall(function() scanForQuest(game:GetService("ServerStorage")) end)
+        -- Quét cả PlayerGui (nếu quest UI có)
+        pcall(function()
+            for _, plr in ipairs(game.Players:GetPlayers()) do
+                local gui = plr:FindFirstChild("PlayerGui")
+                if gui then scanForQuest(gui) end
+            end
+        end)
+
+        for _, item in ipairs(questItems) do
+            addLine(item)
+        end
+        if #questItems == 0 then addLine("  No quest-related objects found.") end
+        addLine("")
+
+        -- 6. Thông tin bổ sung: các folder đặc biệt
+        addLine("--- Special Folders ---")
+        local specialFolders = {"NPCs", "Mobs", "Quests", "Enemies", "Bosses", "Data", "Map", "Spawn"}
+        for _, fname in ipairs(specialFolders) do
+            local folder = workspace:FindFirstChild(fname)
             if folder then
-                table.insert(output, "- Found folder: " .. folderName)
+                addLine("- Found: " .. fname)
             end
         end
-        table.insert(output, "")
+        addLine("")
 
-        -- 5. Thống kê tổng hợp
-        table.insert(output, "=== SUMMARY ===")
-        table.insert(output, "NPCs: " .. npcCount)
-        table.insert(output, "Mobs: " .. mobCount)
-        table.insert(output, "Quest objects: " .. questCount)
-        table.insert(output, "Scan completed.")
+        -- 7. Thông tin CollectionService tags (nếu có)
+        addLine("--- CollectionService Tags (samples) ---")
+        local tagsSeen = {}
+        for _, model in ipairs(allModels) do
+            local tags = game:GetService("CollectionService"):GetTags(model)
+            for _, tag in ipairs(tags) do
+                if not tagsSeen[tag] then
+                    tagsSeen[tag] = true
+                    addLine("- Tag: " .. tag .. " (example on " .. model.Name .. ")")
+                end
+            end
+        end
+        if next(tagsSeen) == nil then addLine("  No CollectionService tags found.") end
+        addLine("")
+
+        -- 8. Tổng kết
+        addLine("=== SUMMARY ===")
+        addLine("NPCs: " .. #npcs)
+        addLine("Mobs: " .. #mobs)
+        addLine("Bosses: " .. #bosses)
+        addLine("Quest objects: " .. #questItems)
+        addLine("Total models with Humanoid: " .. #allModels)
+        addLine("Scan completed.")
+
+        -- Gộp debug info (nếu có) vào cuối, hoặc có thể hiển thị riêng
+        if #debugInfo > 0 then
+            addLine("")
+            addLine("=== DEBUG INFO ===")
+            for _, line in ipairs(debugInfo) do
+                addLine(line)
+            end
+        end
 
         updateConsole(table.concat(output, "\n"))
     end
 
-    -- Hàm copy nội dung
+    -- Hàm copy
     local function copyToClipboard()
         local text = consoleText.Text
-        if text == "" then
-            return
-        end
+        if text == "" then return end
         local clipboard = game:GetService("Clipboard")
         clipboard:set(text)
-        -- Tạo thông báo nhỏ
         local notify = Instance.new("TextLabel")
         notify.Size = UDim2.new(0, 120, 0, 30)
         notify.Position = UDim2.new(0.5, -60, 0.5, -15)
@@ -242,8 +329,21 @@ local function createUI()
         game:GetService("Debris"):AddItem(notify, 1.5)
     end
 
+    -- Hàm debug: in ra console Roblox (F9) để xem log
+    local function debugOutput()
+        local text = consoleText.Text
+        if text == "" then
+            warn("Console is empty. Run scan first.")
+        else
+            print("=== Sailor Piece Console Output ===")
+            print(text)
+            print("=== End ===")
+        end
+    end
+
     runBtn.MouseButton1Click:Connect(scan)
     copyBtn.MouseButton1Click:Connect(copyToClipboard)
+    debugBtn.MouseButton1Click:Connect(debugOutput)
 
     -- Tự động quét lần đầu
     scan()
@@ -251,6 +351,6 @@ end
 
 -- Chờ game load và tạo UI
 coroutine.wrap(function()
-    wait(1)
-    createUI()
+    wait(2)
+    pcall(createUI)
 end)()
